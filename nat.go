@@ -28,10 +28,10 @@ type NAT interface {
 	GetInternalAddress() (addr net.IP, err error)
 
 	// AddPortMapping maps a port on the local host to an external port.
-	AddPortMapping(protocol string, internalPort int, description string, timeout time.Duration) (mappedExternalPort int, err error)
+	AddPortMapping(protocol string, internalPort int, externalPort int, description string, timeout time.Duration) (err error)
 
 	// DeletePortMapping removes a port mapping.
-	DeletePortMapping(protocol string, internalPort int) (err error)
+	DeletePortMapping(protocol string, internalPort int, externalPort int) (err error)
 }
 
 // DiscoverGateway attempts to find a gateway device.

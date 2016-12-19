@@ -1,7 +1,9 @@
 package nat
 
 import (
+	"errors"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/jackpal/gateway"
@@ -30,13 +32,12 @@ func discoverNATPMPWithAddr(c chan NAT, ip net.IP) {
 		return
 	}
 
-	c <- &natpmpNAT{client, ip, make(map[int]int)}
+	c <- &natpmpNAT{client, ip}
 }
 
 type natpmpNAT struct {
 	c       *natpmp.Client
 	gateway net.IP
-	ports   map[int]int
 }
 
 func (n *natpmpNAT) GetDeviceAddress() (addr net.IP, err error) {
@@ -78,36 +79,24 @@ func (n *natpmpNAT) GetExternalAddress() (addr net.IP, err error) {
 	return net.IPv4(d[0], d[1], d[2], d[3]), nil
 }
 
-func (n *natpmpNAT) AddPortMapping(protocol string, internalPort int, description string, timeout time.Duration) (int, error) {
+func (n *natpmpNAT) AddPortMapping(protocol string, internalPort int, externalPort int, description string, timeout time.Duration) error {
 	var (
 		err error
 	)
 
 	timeoutInSeconds := int(timeout / time.Second)
 
-	if externalPort := n.ports[internalPort]; externalPort > 0 {
-		_, err = n.c.AddPortMapping(protocol, internalPort, externalPort, timeoutInSeconds)
-		if err == nil {
-			n.ports[internalPort] = externalPort
-			return externalPort, nil
-		}
+	result, err := n.c.AddPortMapping(protocol, internalPort, externalPort, timeoutInSeconds)
+	if result.MappedExternalPort != uint16(externalPort) {
+		n.c.AddPortMapping(protocol, internalPort, 0, 0)
+		return errors.New("external port " + strconv.Itoa(externalPort) + " already in use")
 	}
-
-	for i := 0; i < 3; i++ {
-		externalPort := randomPort()
-		_, err = n.c.AddPortMapping(protocol, internalPort, externalPort, timeoutInSeconds)
-		if err == nil {
-			n.ports[internalPort] = externalPort
-			return externalPort, nil
-		}
-	}
-
-	return 0, err
+	return err
 }
 
-func (n *natpmpNAT) DeletePortMapping(protocol string, internalPort int) (err error) {
-	delete(n.ports, internalPort)
-	return nil
+func (n *natpmpNAT) DeletePortMapping(protocol string, internalPort int, externalPort int) (err error) {
+	_, err = n.c.AddPortMapping(protocol, internalPort, 0, 0)
+	return err
 }
 
 func (n *natpmpNAT) Type() string {
