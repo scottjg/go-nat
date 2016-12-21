@@ -37,9 +37,7 @@ type NAT interface {
 // DiscoverGateway attempts to find a gateway device.
 func DiscoverGateway() (NAT, error) {
 	select {
-	case nat := <-discoverUPNP_IG1():
-		return nat, nil
-	case nat := <-discoverUPNP_IG2():
+	case nat := <-discoverUPNP():
 		return nat, nil
 	case nat := <-discoverNATPMP():
 		return nat, nil
